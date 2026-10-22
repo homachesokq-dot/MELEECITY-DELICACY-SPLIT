@@ -1,3 +1,4 @@
+-- а хомачлох
 RunConsoleCommand("mat_bloomscale", "0")
 RunConsoleCommand("cl_resend", "3.5")
 RunConsoleCommand("ragdoll_sleepaftertime", "12.0f")
