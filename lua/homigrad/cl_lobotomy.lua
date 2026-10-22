@@ -40,6 +40,7 @@ local mistakeFlashEnd = 0
 local resultEnd = 0
 local resultColor = Color(170, 0, 0)
 local lastKeys = {}
+local typedTimes = {}
 local noAmmo = false
 local phraseFont = "HG_LobotomyPhrase"
 local phraseFontSize = 0
@@ -109,6 +110,7 @@ net.Receive("HG_LobotomyStart", function()
 	active = true
 	typed = 0
 	typedText = ""
+	typedTimes = {}
 	mistakes = 0
 	mistakeFlashEnd = 0
 	startTime = CurTime() + raiseTime
@@ -137,6 +139,7 @@ local function TypeLetter(letter)
 	if letter == expected then
 		typed = typed + 1
 		typedText = typedText .. letter
+		typedTimes[typed] = CurTime()
 
 		if typed >= #phraseKey then
 			Finish(true)
@@ -276,16 +279,27 @@ local function DrawIntroWord(now)
 			offsetY = math.cos(tick * 0.75 + i * 2.1) * shakeLetters[i]
 		end
 
-		draw.SimpleText(char, "HG_LobotomyIntro", x + offsetX + 1, y + offsetY + 1, Color(0, 0, 0, 180 * fade))
-		draw.SimpleText(char, "HG_LobotomyIntro", x + offsetX + 2, y + offsetY, Color(235, 235, 235, 60 * fade))
-		draw.SimpleText(char, "HG_LobotomyIntro", x + offsetX, y + offsetY, Color(235, 235, 235, 245 * fade))
+		local pulse = math.sin(now * 2.2 + i * 0.6) * 0.5 + 0.5
+		local radius = ScreenScale(1.4) * (0.6 + pulse)
+		local glowAlpha = (45 + pulse * 60) * fade
+
+		for j = 0, 7 do
+			local ang = math.pi * 2 * j / 8
+			draw.SimpleText(char, "HG_LobotomyIntro", x + offsetX + math.cos(ang) * radius, y + offsetY + math.sin(ang) * radius, Color(255, 255, 255, glowAlpha))
+		end
+
+		draw.SimpleText(char, "HG_LobotomyIntro", x + offsetX, y + offsetY, Color(255, 255, 255, 245 * fade))
 
 		x = x + widths[i] + tracking
 	end
 end
 
-local function DrawPhrase()
+local function DrawPhrase(now)
 	surface.SetFont(phraseFont)
+
+	local typeStart = startTime + redTime + wordTime
+	local timeLeft = (typeStart + typeTime) - now
+	local panic = math.Clamp(1 - timeLeft / 3, 0, 1)
 
 	local _, textHeight = surface.GetTextSize(phrase)
 	local widths = {}
@@ -312,14 +326,59 @@ local function DrawPhrase()
 		if char ~= " " then
 			letterIndex = letterIndex + 1
 
-			local color = Color(120, 120, 120, 220)
+			local isTyped = letterIndex <= typed
+			local pulse = math.sin(now * 2.4 + i * 0.7) * 0.5 + 0.5
+			local color, glowAlpha, radius
 
-			if letterIndex <= typed then
-				color = Color(235, 235, 235, 245)
+			local pop = 0
+			local bornTime = isTyped and typedTimes[letterIndex]
+
+			if bornTime then
+				local age = now - bornTime
+
+				if age < 0.35 then
+					pop = 1 - age / 0.35
+				end
 			end
 
-			draw.SimpleText(char, phraseFont, x + 1, y + 1, Color(0, 0, 0, 180))
-			draw.SimpleText(char, phraseFont, x, y, color)
+			local floatY = math.sin(now * 1.3 + i * 0.9) * ScreenScale(0.8) * (isTyped and 1 or 0.5)
+
+			local shX = (math.random() - 0.5) * ScreenScale(2.4) * panic
+			local shY = (math.random() - 0.5) * ScreenScale(2.4) * panic
+			local lx = x + shX
+			local ly = y + floatY + shY
+			local shakeScale = 1 + panic * 1.5
+
+			if isTyped then
+				color = Color(255, 255, 255, 245)
+				glowAlpha = 40 + pulse * 35
+				radius = ScreenScale(1.2) * (0.7 + pulse * 0.5) + pop * ScreenScale(3)
+			else
+				color = Color(120, 120, 120, 220)
+				glowAlpha = 12 + pulse * 18
+				radius = ScreenScale(0.8)
+			end
+
+			glowAlpha = glowAlpha * (1 - pop * 0.3) * (0.7 + panic * 0.6)
+
+			for ring = 1, 2 do
+				local r = radius * (0.55 + ring * 0.5) * shakeScale
+				local a = glowAlpha * (ring == 1 and 1 or 0.5)
+
+				for j = 0, 7 do
+					local ang = math.pi * 2 * j / 8 + now * 0.4
+					local jx = (math.random() - 0.5) * ScreenScale(0.8) * (1 + pop)
+					local jy = (math.random() - 0.5) * ScreenScale(0.8) * (1 + pop)
+
+					draw.SimpleText(char, phraseFont, lx + math.cos(ang) * r + jx, ly + math.sin(ang) * r + jy, Color(255, 255, 255, a * (0.8 + pulse * 0.4)))
+				end
+			end
+
+			if pop > 0 then
+				draw.SimpleText(char, phraseFont, lx, ly + (math.random() - 0.5) * ScreenScale(1.5) * pop, Color(255, 255, 255, 230 * pop))
+			end
+
+			draw.SimpleText(char, phraseFont, lx, ly, color)
 		end
 
 		x = x + widths[i] + spacing
@@ -374,7 +433,7 @@ hook.Add("DrawOverlay", "HG_LobotomyOverlay", function()
 		local typeStart = startTime + redTime + wordTime
 
 		if now >= typeStart then
-			DrawPhrase()
+			DrawPhrase(now)
 		end
 
 		if mistakeFlashEnd > now then
