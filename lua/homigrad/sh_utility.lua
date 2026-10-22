@@ -1221,12 +1221,6 @@ local IsValid = IsValid
 --//
 
 --\\ Suicide
-	if SERVER then
-		concommand.Add("suicide", function(ply)
-			ply.suiciding = !ply.suiciding
-		end)
-	end
-
 	function hg.CanSuicide(ply)
 		if not IsValid(ply) or not ply.GetActiveWeapon then return false end
 		local wep = ply:GetActiveWeapon()

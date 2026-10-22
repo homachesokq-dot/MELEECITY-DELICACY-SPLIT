@@ -1,4 +1,4 @@
-﻿if SERVER then AddCSLuaFile() end
+if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "???"
 SWEP.Instructions = "I have no idea how to handle this."
@@ -11,7 +11,7 @@ SWEP.WorldModelReal = "models/swordtemp/c_kf2_katana.mdl"
 SWEP.WorldModelExchange = "models/berserk/dragonslayer/dragonslayer.mdl"
 SWEP.ViewModel = ""
 
-SWEP.CanSuicide = false
+SWEP.CanSuicide = true
 
 
 SWEP.bloodID = 3

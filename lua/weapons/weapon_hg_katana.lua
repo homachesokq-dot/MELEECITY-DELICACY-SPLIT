@@ -1,4 +1,4 @@
-﻿if SERVER then AddCSLuaFile() end
+if SERVER then AddCSLuaFile() end
 SWEP.Base = "weapon_melee"
 SWEP.PrintName = "Katana"
 SWEP.Instructions = "A traditional Japanese katana featuring a curved, single-edged blade designed for precision and balance. Lightweight and efficient, it allows for quick, controlled swings and smooth handling in close-range use.\n\nLMB to attack.\nRMB to block."
@@ -17,7 +17,7 @@ SWEP.SuicideCutVec = Vector(3, -6, 0)
 SWEP.SuicideCutAng = Angle(10, 0, 0)
 SWEP.SuicideTime = 0.5
 SWEP.SuicideSound = "weapons/knife/knife_hit1.wav"
-SWEP.CanSuicide = false
+SWEP.CanSuicide = true
 SWEP.SuicideNoLH = true
 SWEP.SuicidePunchAng = Angle(5, -15, 0)
 

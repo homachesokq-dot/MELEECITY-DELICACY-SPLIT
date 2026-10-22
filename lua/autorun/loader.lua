@@ -1,7 +1,7 @@
 hg = hg or {}
 hg.Version = "Release 1.01.9"
 hg.GitHub_ReposOwner = "kazoouh"
-hg.GitHub_ReposName = "Meleecity: Delicacy" -- please add your real git fork!
+hg.GitHub_ReposName = "MELEECITY-DELICACY-SPLIT" -- please add your real git fork!
 
 
 -- if hg.GitHub_ReposOwner and hg.GitHub_ReposOwner != "" then

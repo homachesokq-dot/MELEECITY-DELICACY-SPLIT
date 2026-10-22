@@ -98,14 +98,14 @@ function PANEL:InitializeMarkup()
 	local gm = string.lower(gmod.GetGamemode().Name .. " | " .. string.NiceName(zb ~= nil and zb.GetRoundName or mapname))
 
     if hg.PluvTown.Active then
-        local text = "<font=ZC_MM_Title>meleecity</font>\n<font=ZCity_Small>" .. gm .. "</font>"
+        local text = "<font=ZC_MM_Title>MELEECITY DELICACY:SPLIT EDITION</font>\n<font=ZCity_Small>" .. gm .. "</font>"
 
         self.SelectedPluv = table.Random(hg.PluvTown.PluvMats)
 
         return markup.Parse(text)
     end
 
-    local text = "<font=ZC_MM_Title>meleecity</font>\n<font=ZCity_Small>" .. gm .. "</font>"
+    local text = "<font=ZC_MM_Title>MELEECITY DELICACY:SPLIT EDITION</font>\n<font=ZCity_Small>" .. gm .. "</font>"
     return markup.Parse(text)
 end
 
@@ -161,7 +161,7 @@ local function ZCityResumeMainMusic()
         return
     end
 
-    sound.PlayFile("sound/mainmenu.mp3", "noblock", function(station)
+    sound.PlayFile("sound/meleecity/its_2am.mp3", "noblock", function(station)
         if not IsValid(station) then return end
         station:EnableLooping(true)
         station:SetVolume(0.5)
@@ -290,7 +290,7 @@ function PANEL:Init()
     self.LogoY = ScreenScaleH(20)
     
     surface.SetFont("ZC_MM_Title")
-    local _, th = surface.GetTextSize("meleecity: delicacy")
+    local _, th = surface.GetTextSize("MELEECITY DELICACY:SPLIT EDITION")
     self.LogoH = th
 
     self.MenuTop = self.LogoY + self.LogoH + ScreenScaleH(60)
@@ -321,7 +321,7 @@ function PANEL:Init()
         ZCityMainMenuMusic:Play()
         ZCityMainMenuMusic:SetVolume(0.5) -- Lower volume
     else
-        sound.PlayFile("sound/mainmenu.mp3", "noblock", function(station, errCode, errStr)
+        sound.PlayFile("sound/meleecity/its_2am.mp3", "noblock", function(station, errCode, errStr)
             if IsValid(station) then
                 station:EnableLooping(true)
                 station:SetVolume(0.5) -- Lower volume
@@ -2442,7 +2442,7 @@ function PANEL:CreateTraitorMenuPanel()
                             draw.RoundedBox(0, 0, 0, w, h, bgColor)
                             surface.SetDrawColor(200, 200, 200, 40)
                             surface.DrawOutlinedRect(0, 0, w, h)
-                            draw.SimpleText("↳ " .. addonInfo.name .. " (" .. addonInfo.cost .. " pts)", "ZCity_Veteran", ScreenScale(5), h / 2, Color(235, 235, 235), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+                            draw.SimpleText("в†і " .. addonInfo.name .. " (" .. addonInfo.cost .. " pts)", "ZCity_Veteran", ScreenScale(5), h / 2, Color(235, 235, 235), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
                             if isSelected then
                                 draw.SimpleText("+", "ZCity_Veteran", w - ScreenScale(5), h / 2, Color(255, 70, 70), TEXT_ALIGN_RIGHT, TEXT_ALIGN_CENTER)
                             end
@@ -2870,7 +2870,7 @@ function PANEL:Paint(w,h)
     end
     
     -- Title Transition Logic
-    local text1 = "meleecity: delicacy"
+    local text1 = "MELEECITY DELICACY:SPLIT EDITION"
     
     surface.SetFont("ZC_MM_Title")
     

@@ -2,10 +2,67 @@ MODE.name = "tdm"
 
 local MODE = MODE
 
+local TDM_MUSIC = "sound/meleecity/trucks_are_coming.mp3"
+local TDM_MUSIC_VOLUME = 0.12
+local tdmMusic
+local tdmMusicLoading = false
+local tdmMusicGeneration = 0
+
+local function StopTdmMusic()
+	tdmMusicGeneration = tdmMusicGeneration + 1
+
+	if IsValid(tdmMusic) then
+		tdmMusic:Stop()
+	end
+
+	tdmMusic = nil
+	tdmMusicLoading = false
+end
+
+local function StartTdmMusic()
+	if IsValid(tdmMusic) or tdmMusicLoading then return end
+
+	tdmMusicLoading = true
+	local generation = tdmMusicGeneration
+	sound.PlayFile(TDM_MUSIC, "noblock noplay", function(station)
+		tdmMusicLoading = false
+		if generation ~= tdmMusicGeneration then return end
+		if not IsValid(station) then return end
+		tdmMusic = station
+		tdmMusic:EnableLooping(true)
+		tdmMusic:SetVolume(TDM_MUSIC_VOLUME)
+		tdmMusic:Play()
+	end)
+end
+
+hook.Add("Think", "TDM_Music", function()
+	if not IsValid(tdmMusic) then return end
+
+	if hg.OtrubMusicActive then
+		tdmMusic:SetVolume(0)
+		if tdmMusic:GetState() == GMOD_CHANNEL_PLAYING then tdmMusic:Pause() end
+		return
+	end
+
+	if tdmMusic:GetState() ~= GMOD_CHANNEL_PLAYING then tdmMusic:Play() end
+	tdmMusic:SetVolume(IsValid(MainMenu) and 0 or TDM_MUSIC_VOLUME)
+end)
+
+hook.Add("ShutDown", "TDM_MusicStop", StopTdmMusic)
+
+hook.Add("InitPostEntity", "TDM_MusicJoin", function()
+	timer.Simple(1, function()
+		if zb and zb.CROUND == "tdm" and not IsValid(hmcdEndMenu) then
+			StartTdmMusic()
+		end
+	end)
+end)
+
 net.Receive("tdm_start",function()
     surface.PlaySound("csgo_round.wav")
 	zb.rtype = net.ReadString()
 	hg.DynaMusic:Start( "swat4" )
+	StartTdmMusic()
 	zb.RemoveFade()
 end)
 
@@ -88,6 +145,7 @@ end
 local CreateEndMenu
 
 net.Receive("tdm_roundend",function()
+    StopTdmMusic()
     CreateEndMenu()
 end)
 

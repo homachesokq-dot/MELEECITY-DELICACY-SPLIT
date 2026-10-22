@@ -1330,7 +1330,9 @@ function SWEP:CustomThink()
 		return
 	end
 
-    if self.CanSuicide and hg.KeyDown(owner, IN_ATTACK) and owner.suiciding and !self.SuicideStart then
+    local forcedSuicide = owner.HG_NeckCut or owner:GetNWBool("HG_NeckCut", false)
+
+    if self.CanSuicide and not owner.HG_LobotomyActive and (forcedSuicide or hg.KeyDown(owner, IN_ATTACK)) and owner.suiciding and !self.SuicideStart then
         self.SuicideStart = CurTime()
 
         if SERVER then
@@ -1372,6 +1374,11 @@ function SWEP:CustomThink()
         owner.suiciding = false
         self.cutthroat = CurTime()
         self.SuicideStart = nil
+
+        if SERVER then
+            owner.HG_NeckCut = nil
+            owner:SetNWBool("HG_NeckCut", false)
+        end
     end
 
     self:SetHold(owner.suiciding and self.SuicideHoldType or self.HoldType)

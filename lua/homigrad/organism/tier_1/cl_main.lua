@@ -99,7 +99,9 @@ local function plyCommand(ply,cmd)
 	if ply.cmdtimer < time then
 		ply.cmdtimer = time + 0.1
 
-		ply:ConCommand(cmd)
+		if not (hg.OtrubMusicActive and IsValid(ply) and ply:Alive() and string.find(cmd, "soundfade", 1, true)) then
+			ply:ConCommand(cmd)
+		end
 	end
 end
 
