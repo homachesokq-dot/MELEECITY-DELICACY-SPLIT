@@ -97,10 +97,10 @@ if CLIENT then
 	})
 
 	surface.CreateFont("HuyFont", {
-		font = "BudgetLabel",
+		font = "Times New Roman",
 		extended = true,
 		size = ScreenScale(9),
-		weight = 0,
+		weight = 500,
 		blursize = 0,
 		scanlines = 0,
 		antialias = true,

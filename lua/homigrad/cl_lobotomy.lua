@@ -417,6 +417,9 @@ local function DrawResult(now)
 	surface.DrawRect(0, 0, ScrW(), ScrH())
 end
 
+local vignetteShader = Material("effects/shaders/zb_vignette")
+local vignetteLerp = 0
+
 hook.Add("DrawOverlay", "HG_LobotomyOverlay", function()
 	local now = CurTime()
 
@@ -433,7 +436,19 @@ hook.Add("DrawOverlay", "HG_LobotomyOverlay", function()
 		local typeStart = startTime + redTime + wordTime
 
 		if now >= typeStart then
+			vignetteLerp = LerpFT(0.25, vignetteLerp, 1)
+
+			render.UpdateScreenEffectTexture()
+			vignetteShader:SetFloat("$c2_x", now + 10000)
+			vignetteShader:SetFloat("$c0_z", 0.6 * vignetteLerp)
+			vignetteShader:SetFloat("$c1_y", 2 * vignetteLerp)
+
+			render.SetMaterial(vignetteShader)
+			render.DrawScreenQuad()
+
 			DrawPhrase(now)
+		else
+			vignetteLerp = LerpFT(0.25, vignetteLerp, 0)
 		end
 
 		if mistakeFlashEnd > now then
@@ -447,4 +462,5 @@ hook.Add("DrawOverlay", "HG_LobotomyOverlay", function()
 	end
 
 	DrawResult(now)
+	vignetteLerp = LerpFT(0.25, vignetteLerp, 0)
 end)

@@ -1,4 +1,3 @@
-----
 local PANEL = {}
 
 local red_select = Color(200,200,200)
@@ -81,7 +80,6 @@ surface.CreateFont("ZC_MM_SubTitle", {
     weight = 500,
     antialias = true
 })
--- local Title = markup.Parse("error")
 
 local Pluv = Material("pluv/pluvkid.jpg")
 local LogoMat = Material("vgui/logo.png")
@@ -97,9 +95,6 @@ if NoiseMat:IsError() then
 end
 
 local SettingsSelects = {
-    -- {Title = "Master Volume", Type = "Slider", Min = 0, Max = 1, CVar = "volume"}, -- Blocked
-    -- {Title = "Music Volume", Type = "Slider", Min = 0, Max = 1, CVar = "snd_musicvolume"}, -- Blocked
-    -- {Title = "Sensitivity", Type = "Slider", Min = 0.1, Max = 20, CVar = "sensitivity"}, -- Blocked
     {Title = "return", Func = function(luaMenu) luaMenu:SwitchToMain() end}
 }
 
@@ -126,7 +121,6 @@ end
 local color_red = Color(90,90,95,120)
 local clr_gray = Color(255,255,255,25)
 local clr_verygray = Color(10,10,19,235)
--- Global variable to persist music across menu opens
 ZCityMainMenuMusic = ZCityMainMenuMusic or nil
 ZCityAppearanceMusic = ZCityAppearanceMusic or nil
 ZCityIntroMusic = ZCityIntroMusic or nil
@@ -270,8 +264,8 @@ end)
 
 function PANEL:Init()
     self:SetAlpha( 0 )
+    self.OpenTime = CurTime()
     self:SetSize( ScrW(), ScrH() )
-    -- self:Center()
     self:SetTitle( "" )
     self:SetDraggable( false )
     self:SetBorder( false )
@@ -279,16 +273,14 @@ function PANEL:Init()
     self:SetDraggable( false )
     self:ShowCloseButton( false )
     
-    -- Check for Intro Mode
     if not ZCityHasSeenIntro then
         self.IsIntro = true
     end
     
     self.CurrentState = "Main"
     self.TargetState = "Main"
-    self.TransitionProgress = 1 -- Start in stable state
+    self.TransitionProgress = 1
 
-    -- self.Title, self.TitleShadow = self:InitializeMarkup()
 
     timer.Simple(0,function()
         if self.First then
@@ -310,7 +302,7 @@ function PANEL:Init()
 
     self.TitleStretch = 1.55
     self.MainTitleH = mainH * self.TitleStretch
-    self.SubGap = ScreenScaleH(10)
+    self.SubGap = -ScreenScaleH(9)
     self.LogoH = self.MainTitleH + self.SubGap + subH
 
     self.MenuTop = self.LogoY + self.LogoH + math.max(ScreenScaleH(120), ScrH() * 0.16)
@@ -333,18 +325,17 @@ function PANEL:Init()
     lDock:SetVisible(false)
 
     if LocalPlayer and IsValid(LocalPlayer()) then
-        LocalPlayer():SetDSP(31) -- Muffled/Underwater effect
+        LocalPlayer():SetDSP(31)
     end
     
-    -- Play Background Music (Persistent)
     if IsValid(ZCityMainMenuMusic) then
         ZCityMainMenuMusic:Play()
-        ZCityMainMenuMusic:SetVolume(0.5) -- Lower volume
+        ZCityMainMenuMusic:SetVolume(0.5)
     else
         sound.PlayFile("sound/meleecity/its_2am.mp3", "noblock", function(station, errCode, errStr)
             if IsValid(station) then
                 station:EnableLooping(true)
-                station:SetVolume(0.5) -- Lower volume
+                station:SetVolume(0.5)
                 station:Play()
                 ZCityMainMenuMusic = station
             else
@@ -371,6 +362,11 @@ function PANEL:Init()
         if v.GamemodeOnly and engine.ActiveGamemode() != "zcity" then continue end
         self:AddSelect( self.menuList, v.Title, v )
     end
+
+    self.BtnStart = CurTime() + 0.62
+    self.SubStart = self.BtnStart + #self.Buttons * 0.085 + 0.15
+    self.SubPlayed = false
+
     self.menuList.PerformLayout = function(panel)
         local y = 0
         local w = panel:GetWide()
@@ -385,10 +381,9 @@ function PANEL:Init()
                     btn.BaseY = nil
                     continue
                 end
-                -- btn:SetSize(w, panel.ButtonHeight) -- Don't force width, use content size
                 btn:SizeToContents()
                 btn:SetWide(btn:GetWide() + ScreenScaleH(8))
-                btn:SetTall(math.max(panel.ButtonHeight, btn:GetTall())) -- Use max height
+                btn:SetTall(math.max(panel.ButtonHeight, btn:GetTall()))
                 btn.BaseX = math.floor((panel:GetWide() - btn:GetWide()) / 2)
                 btn.BaseY = y
                 y = y + btn:GetTall() + panel.Spacing
@@ -411,9 +406,13 @@ function PANEL:Init()
         local t = CurTime()
         for i, btn in ipairs(self.Buttons) do
             if IsValid(btn) and btn.BaseY then
+                local introK = math.Clamp((t - ((self.BtnStart or t) + (i - 1) * 0.085)) / 0.22, 0, 1)
+                btn:SetAlpha(introK * 255)
+                btn.IntroK = introK
                 local waveX = math.sin(t * 28 + i * 0.75) * waveAmp
                 local waveY = math.cos(t * 24 + i * 0.65) * waveAmp * 0.85
-                btn:SetPos(math.Round((btn.BaseX or 0) + baseOffsetX + waveX), btn.BaseY + math.Round(baseOffsetY + waveY))
+                local introDrop = (1 - introK) * ScreenScaleH(26)
+                btn:SetPos(math.Round((btn.BaseX or 0) + baseOffsetX + waveX), btn.BaseY + math.Round(baseOffsetY + waveY + introDrop))
             end
         end
     end
@@ -424,7 +423,6 @@ function PANEL:Init()
     rDock:SetSize(0, 0)
     rDock:SetVisible(false)
     
-    -- Flashing Images Logic
     self.FlashImages = {
         Material("vgui/numerals.png"),
         Material("vgui/pills.png"),
@@ -432,7 +430,7 @@ function PANEL:Init()
     }
     self.NextFlashTime = CurTime() + math.random(5, 10)
     self.CurrentFlashImage = nil
-    self.FlashState = "Idle" -- Idle, In, Stay, Out
+    self.FlashState = "Idle"
     self.FlashAlpha = 0
     self.FlashStartTime = 0
     self.FlashDurationIn = 1
@@ -441,12 +439,15 @@ function PANEL:Init()
 end
 
 function PANEL:Think()
+    if not self.SubPlayed and self.SubStart and CurTime() >= self.SubStart + 0.12 then
+        self.SubPlayed = true
+        surface.PlaySound("snd_jack_hmcd_knifehit.wav")
+    end
+
     if LocalPlayer and IsValid(LocalPlayer()) then
-        -- Enforce DSP every frame to prevent decay/override
         LocalPlayer():SetDSP(31, false)
     end
     
-    -- Flash Image State Machine
     if self.CurrentState == "Settings" or self.TargetState == "Settings" then
         local ct = CurTime()
         if self.FlashState == "Idle" then
@@ -474,22 +475,20 @@ function PANEL:Think()
             self.FlashAlpha = math.Clamp(1 - progress, 0, 1) * 255
             if progress >= 1 then
                 self.FlashState = "Idle"
-                self.NextFlashTime = ct + math.random(5, 15) -- Random interval
+                self.NextFlashTime = ct + math.random(5, 15)
                 self.CurrentFlashImage = nil
             end
         end
     else
-        -- Reset if not in settings
         self.FlashState = "Idle"
         self.CurrentFlashImage = nil
-        self.NextFlashTime = CurTime() + math.random(2, 5) -- Shorter delay when returning
+        self.NextFlashTime = CurTime() + math.random(2, 5)
     end
     
     if self.IsIntro and not self.IntroSequenceActive then
         if input.IsKeyDown(KEY_ENTER) then
             self.IntroSequenceActive = true
             self.IntroStartTime = CurTime()
-            -- Play "itbegins" sound
             sound.PlayFile("sound/itbegins.mp3", "noblock", function(station, errCode, errStr)
                 if IsValid(station) then
                     ZCityIntroMusic = station
@@ -499,7 +498,6 @@ function PANEL:Think()
                 end
             end)
             
-            -- Fade out background music if playing
             if IsValid(ZCityMainMenuMusic) then
                 local music = ZCityMainMenuMusic
                 local duration = 3
@@ -525,10 +523,8 @@ function PANEL:Think()
         end
     end
     
-    -- Transition Logic
-    self.TransitionProgress = math.min(self.TransitionProgress + FrameTime() * 2, 1) -- 0.5 sec duration
+    self.TransitionProgress = math.min(self.TransitionProgress + FrameTime() * 2, 1)
 
-    -- If we are switching between Traitor menus, we force the state update instantly but animate the alpha
     if (self.TargetState == "TraitorMenu" and self.CurrentState == "TraitorPresets") or (self.TargetState == "TraitorPresets" and self.CurrentState == "TraitorMenu") then
         if self.TransitionProgress >= 1 then
             self.CurrentState = self.TargetState
@@ -536,7 +532,6 @@ function PANEL:Think()
     elseif self.TransitionProgress >= 1 and self.CurrentState ~= self.TargetState then
         self.CurrentState = self.TargetState
         
-        -- Finalize transition visibility
         if self.CurrentState == "Settings" then
             if IsValid(self.menuList) then self.menuList:SetVisible(false) end
             if IsValid(self.SettingsList) then self.SettingsList:SetVisible(true) end
@@ -579,7 +574,6 @@ function PANEL:Think()
                 self.TraitorMenuPanel:SetMouseInputEnabled(true)
             end
             if IsValid(self.TraitorPresetsPanel) then 
-                -- Keep visible if we are transitioning to presets
                 if self.TargetState ~= "TraitorPresets" then
                     self.TraitorPresetsPanel:SetVisible(false) 
                     self.TraitorPresetsPanel:SetMouseInputEnabled(false)
@@ -591,7 +585,6 @@ function PANEL:Think()
             if IsValid(self.AppearancePanel) then self.AppearancePanel:SetVisible(false) end
             if IsValid(self.AchievementsPanel) then self.AchievementsPanel:SetVisible(false) end
             if IsValid(self.TraitorMenuPanel) then 
-                -- Keep visible if we are transitioning to loadout
                 if self.TargetState ~= "TraitorMenu" then
                     self.TraitorMenuPanel:SetVisible(false) 
                     self.TraitorMenuPanel:SetMouseInputEnabled(false)
@@ -604,9 +597,6 @@ function PANEL:Think()
         end
     end
     
-    -- Calculate Visual T (0 = Main, 1 = Target)
-    -- This logic assumes we only transition from Main <-> Something.
-    -- If we go Settings <-> Appearance directly, it might be weird, but for now we assume Main is the hub.
     local visual_t = 0
     if self.TargetState == "Settings" or self.TargetState == "Appearance" or self.TargetState == "Achievements" or self.TargetState == "TraitorMenu" or self.TargetState == "TraitorPresets" then
         if (self.TargetState == "TraitorMenu" and self.CurrentState == "TraitorPresets") or (self.TargetState == "TraitorPresets" and self.CurrentState == "TraitorMenu") then
@@ -638,7 +628,6 @@ function PANEL:Think()
     self.TransitionImageShakeX = Lerp(shakeLerp, self.TransitionImageShakeX or 0, self.TargetTransitionImageShakeX or 0)
     self.TransitionImageShakeY = Lerp(shakeLerp, self.TransitionImageShakeY or 0, self.TargetTransitionImageShakeY or 0)
     
-    -- Alpha handling for buttons during transition
     if IsValid(self.menuList) then
         if self.IsIntro then
             self.menuList:SetVisible(false)
@@ -649,7 +638,6 @@ function PANEL:Think()
                     self.menuList:SetVisible(false)
                 else
                     self.menuList:SetAlpha(255)
-                    -- Don't hide it, let it move offscreen
                 end
             elseif self.TargetState == "Main" then
                 self.menuList:SetVisible(true)
@@ -667,7 +655,6 @@ function PANEL:Think()
                 self.SettingsReturnBtn:SetAlpha(255 * visual_t)
             end
         elseif self.TargetState == "Main" and self.CurrentState == "Settings" then
-             -- Fade out quickly
              local alpha = math.Clamp(1 - ((1 - visual_t) * 3), 0, 1) * 255
              self.SettingsList:SetAlpha(alpha)
              if alpha <= 0 then self.SettingsList:SetVisible(false) end
@@ -684,7 +671,6 @@ function PANEL:Think()
             self.AppearancePanel:SetVisible(true)
             self.AppearancePanel:SetAlpha(255 * visual_t)
         elseif self.TargetState == "Main" and self.CurrentState == "Appearance" then
-             -- Fade out quickly
              local alpha = math.Clamp(1 - ((1 - visual_t) * 3), 0, 1) * 255
              self.AppearancePanel:SetAlpha(alpha)
              if alpha <= 0 then self.AppearancePanel:SetVisible(false) end
@@ -874,7 +860,6 @@ function PANEL:SwitchToAppearance()
     self.TransitionProgress = 0
     self:CreateAppearancePanel()
     
-    -- Music Transition
     if IsValid(ZCityMainMenuMusic) then
         self:FadeMusic(ZCityMainMenuMusic, 0, 1, function()
             if IsValid(ZCityMainMenuMusic) then ZCityMainMenuMusic:Pause() end
@@ -895,7 +880,6 @@ function PANEL:SwitchToAppearance()
                 ZCityAppearanceMusic = station
             else
                 print("Error playing appearance music (sound/sexualdeviants.mp3):", errCode, errStr)
-                -- Try without sound/ prefix just in case
                 sound.PlayFile("sexualdeviants.mp3", "noblock", function(station2, errCode2, errStr2)
                     if IsValid(station2) then
                         station2:EnableLooping(true)
@@ -1298,7 +1282,6 @@ function PANEL:SwitchToMain()
     self.TransitionProgress = 0
     self:CloseSkinsPanel()
     
-    -- Music Transition
     if IsValid(ZCityAppearanceMusic) then
         self:FadeMusic(ZCityAppearanceMusic, 0, 1, function()
             if IsValid(ZCityAppearanceMusic) then ZCityAppearanceMusic:Stop() end
@@ -1307,7 +1290,7 @@ function PANEL:SwitchToMain()
     
     if IsValid(ZCityMainMenuMusic) then
         ZCityMainMenuMusic:Play()
-        self:FadeMusic(ZCityMainMenuMusic, 0.5, 1) -- Return to 0.5 as per Init
+        self:FadeMusic(ZCityMainMenuMusic, 0.5, 1)
     end
 end
 
@@ -1323,17 +1306,14 @@ function PANEL:CreateSettingsPanel()
     self.SettingsList.ButtonHeight = ScreenScale(18)
     self.SettingsList.Spacing = ScreenScale(8)
     
-    -- "hg_settings" Integration
-    -- Iterate over hg.settings.tbl categories
     if hg and hg.settings and hg.settings.tbl then
         for categoryName, items in SortedPairs(hg.settings.tbl) do
-            -- Category Header
             local catLbl = vgui.Create("DLabel", self.SettingsList)
             catLbl:SetText(string.lower(categoryName))
             catLbl:SetFont("ZCity_Veteran")
             catLbl:SizeToContentsY()
             catLbl:Dock(TOP)
-            catLbl:SetTextColor(Color(255, 0, 0)) -- Red for categories
+            catLbl:SetTextColor(Color(255, 0, 0))
             catLbl:DockMargin(0, ScreenScale(5), 0, ScreenScale(2))
             
             for _, item in SortedPairs(items) do
@@ -1348,7 +1328,7 @@ function PANEL:CreateSettingsPanel()
                 pnl:SetTall(ScreenScale(25))
                 pnl:Dock(TOP)
                 pnl:DockMargin(0, 0, 0, ScreenScale(2))
-                pnl.Paint = function() end -- Transparent background
+                pnl.Paint = function() end
                 
                 local lbl = vgui.Create("DLabel", pnl)
                 lbl:SetText(string.lower(title))
@@ -1356,13 +1336,12 @@ function PANEL:CreateSettingsPanel()
                 lbl:SizeToContentsY()
                 lbl:Dock(LEFT)
                 lbl:SetTextColor(Color(200, 200, 200))
-                lbl:SetWide(self.SettingsList:GetWide() * 0.6) -- Dynamic width based on panel size
-                lbl:SetWrap(false) -- Ensure it doesn't wrap weirdly, but width should be enough now
+                lbl:SetWide(self.SettingsList:GetWide() * 0.6)
+                lbl:SetWrap(false)
                 
                 pnl:SetTall(math.max(ScreenScale(25), lbl:GetTall() + ScreenScale(4)))
                 
                 if isBool then
-                    -- Container for Off/On buttons
                     local toggleContainer = vgui.Create("DPanel", pnl)
                     toggleContainer:Dock(RIGHT)
                     toggleContainer:SetWide(ScreenScale(80))
@@ -1371,38 +1350,32 @@ function PANEL:CreateSettingsPanel()
                     local btnOn = vgui.Create("DButton", toggleContainer)
                     local btnOff = vgui.Create("DButton", toggleContainer)
 
-                    -- Helper to update visuals
                     local function UpdateToggleVisuals()
                         local state = conVar:GetBool()
                         
-                        -- Off Button
                         btnOff.Paint = function(s, w, h)
-                            if not state then -- Active (OFF is active)
+                            if not state then
                                 surface.SetDrawColor(255, 255, 255, 255)
                                 surface.DrawRect(0, 0, w, h)
                                 s:SetTextColor(Color(0, 0, 0))
-                            else -- Inactive
+                            else
                                 surface.SetDrawColor(0, 0, 0, 0)
-                                -- surface.DrawRect(0, 0, w, h)
                                 s:SetTextColor(Color(255, 255, 255))
                             end
                         end
 
-                        -- On Button
                         btnOn.Paint = function(s, w, h)
-                            if state then -- Active (ON is active)
+                            if state then
                                 surface.SetDrawColor(255, 255, 255, 255)
                                 surface.DrawRect(0, 0, w, h)
                                 s:SetTextColor(Color(0, 0, 0))
-                            else -- Inactive
+                            else
                                 surface.SetDrawColor(0, 0, 0, 0)
-                                -- surface.DrawRect(0, 0, w, h)
                                 s:SetTextColor(Color(255, 255, 255))
                             end
                         end
                     end
 
-                    -- Setup Off Button
                     btnOff:SetText("off")
                     btnOff:SetFont("ZCity_Veteran")
                     btnOff:Dock(LEFT)
@@ -1414,10 +1387,9 @@ function PANEL:CreateSettingsPanel()
                         sound.PlayFile("sound/press3.mp3", "noblock", function(station) if IsValid(station) then station:Play() end end)
                     end
 
-                    -- Setup On Button
                     btnOn:SetText("on")
                     btnOn:SetFont("ZCity_Veteran")
-                    btnOn:Dock(LEFT) -- Next to Off
+                    btnOn:Dock(LEFT)
                     btnOn:SetWide(ScreenScale(35))
                     btnOn.DoClick = function()
                         conVar:SetBool(true)
@@ -1427,58 +1399,45 @@ function PANEL:CreateSettingsPanel()
 
                     UpdateToggleVisuals()
                 else
-                    -- Slider for non-bools
                     local slider = vgui.Create("DNumSlider", pnl)
                     slider:Dock(RIGHT)
-                    slider:SetWide(self.SettingsList:GetWide() * 0.4) -- Use remaining space
+                    slider:SetWide(self.SettingsList:GetWide() * 0.4)
                     slider:SetMin(conVar:GetMin() or 0)
                     slider:SetMax(conVar:GetMax() or 100)
                     slider:SetDecimals(item[4] and 2 or 0)
                     slider:SetConVar(conVarName)
-                    -- Ensure value is initialized immediately for visual alignment
                     if conVar then slider:SetValue(conVar:GetFloat()) end
-                    slider.Label:SetVisible(false) -- Hide default label
+                    slider.Label:SetVisible(false)
                     
-                    -- Custom Slider Styling (Manhunt 2 Style / Long Box)
                     slider.TextArea:SetFont("ZCity_Veteran")
-                    local faintWhite = Color(255, 255, 255, 150) -- Faint white (Increased visibility)
+                    local faintWhite = Color(255, 255, 255, 150)
                     slider.TextArea:SetTextColor(faintWhite)
                     slider.TextArea.Paint = function(s, w, h)
-                        -- Transparent background for text area
                         s:DrawTextEntryText(faintWhite, Color(200, 200, 200), faintWhite)
                     end
                     
                     slider.Slider.Paint = function(s, w, h)
-                        -- White Outline
                         surface.SetDrawColor(255, 255, 255, 255)
                         surface.DrawOutlinedRect(0, h/2 - ScreenScale(6), w, ScreenScale(12), 1)
                         
-                        -- Black Empty Space (Background of the bar)
                         surface.SetDrawColor(0, 0, 0, 255)
                         surface.DrawRect(1, h/2 - ScreenScale(6) + 1, w - 2, ScreenScale(12) - 2)
                         
-                        -- White Fill
-                        local val = s:GetValue() -- Get fractional value (0-1)
-                        -- DNumSlider's Slider is a DSlider, which has m_fValue (0-1)
-                        -- But we can also calculate it if needed. s.m_fSlideX is usually the knob position.
+                        local val = s:GetValue()
                         
-                        -- Let's rely on s.m_fSlideX which is updated by DSlider
                         local fillW = math.Clamp(s.m_fSlideX * (w - 2), 0, w - 2)
                         
                         surface.SetDrawColor(255, 255, 255, 255)
                         surface.DrawRect(1, h/2 - ScreenScale(6) + 1, fillW, ScreenScale(12) - 2)
                     end
                     
-                    -- Hide Knob (or make it invisible as the fill represents the value)
                     slider.Slider.Knob.Paint = function(s, w, h)
-                        -- Invisible knob
                     end
                 end
             end
         end
     end
     
-    -- Add Return Button at the bottom (Separate from scroll list)
     if not IsValid(self.SettingsReturnBtn) then
         local btn = vgui.Create("DLabel", self)
         self.SettingsReturnBtn = btn
@@ -1500,7 +1459,6 @@ function PANEL:CreateSettingsPanel()
             self:SwitchToMain()
         end
         
-        -- Add paint method for hover effect
         btn.Paint = function(self, w, h)
             local font = self:GetFont()
             local text = self:GetText()
@@ -1551,7 +1509,6 @@ function PANEL:CreateAchievementButton(parent, ach)
     button:DockMargin(0, 0, 0, ScreenScale(6))
     button.Padding = ScreenScale(10)
 
-    -- Hover State
     button.IsHoveredState = false
     button.OnCursorEntered = function(s)
         s.IsHoveredState = true
@@ -1566,7 +1523,6 @@ function PANEL:CreateAchievementButton(parent, ach)
         if width <= 0 then return end
         if self.DescWidth == width then return end
         self.DescWidth = width
-        -- Faint gray description
         self.DescMarkup = markup.Parse("<font=ZCity_Small><color=180,180,180>" .. string.lower(ach.description) .. "</color></font>", width)
     end
 
@@ -1582,36 +1538,28 @@ function PANEL:CreateAchievementButton(parent, ach)
         local val = localach and localach[ach.key] and localach[ach.key].value or ach.start_value
         local progress = math.Clamp(val / ach.needed_value, 0, 1)
 
-        -- Background (Faint Black/Transparent)
         surface.SetDrawColor(0, 0, 0, 100)
         surface.DrawRect(0, 0, w, h)
         
-        -- Hover Flash
         if self.IsHoveredState then
             local alpha = math.random(20, 40)
             surface.SetDrawColor(255, 255, 255, alpha)
             surface.DrawRect(0, 0, w, h)
         end
         
-        -- Border (Faint White)
         surface.SetDrawColor(255, 255, 255, 30)
         surface.DrawOutlinedRect(0, 0, w, h)
 
-        -- Progress Bar (Bottom)
         local barH = ScreenScale(3)
-        -- Bar Background
         surface.SetDrawColor(0, 0, 0, 200)
         surface.DrawRect(1, h - barH - 1, w - 2, barH)
         
-        -- Bar Fill (Faint White)
         surface.SetDrawColor(255, 255, 255, 150)
         surface.DrawRect(1, h - barH - 1, (w - 2) * progress, barH)
 
-        -- Text Handling
         local nameColor = Color(235, 235, 235)
         local percentText = ach.showpercent and (math.floor(progress * 100) .. "%") or ""
         
-        -- Shake effect on hover
         local shakeX, shakeY = 0, 0
         if self.IsHoveredState and math.random() > 0.8 then
             shakeX = math.random(-1, 1)
@@ -1627,7 +1575,6 @@ function PANEL:CreateAchievementButton(parent, ach)
         end
 
         if self.DescMarkup then
-            -- markup:Draw(x, y, alignx, aligny, alpha)
             self.DescMarkup:Draw(self.Padding + shakeX, ScreenScale(22) + shakeY, TEXT_ALIGN_LEFT, TEXT_ALIGN_TOP, 255)
         end
     end
@@ -1656,7 +1603,7 @@ function PANEL:CreateAchievementsPanel()
 
     local listW = math.max(ScreenScale(320), ScrW() * 0.6)
     local listX = ScreenScale(28)
-    local listY = ScreenScaleH(80) -- Moved up since title is gone
+    local listY = ScreenScaleH(80)
     local listH = math.max(ScrH() * 0.5, ScrH() - listY - ScreenScaleH(80))
 
     self.AchievementsScroll = vgui.Create("DScrollPanel", self.AchievementsPanel)
@@ -1775,7 +1722,6 @@ function PANEL:CreateTraitorMenuPanel()
     local traitorTotalW = math.min(infoW + gapW + loadoutW, availableW)
     local traitorX = math.max((ScrW() - traitorTotalW) * 0.5, outerMargin)
 
-    -- Left Panel: Presets (Separate from sliding TraitorMenuPanel)
     self.TraitorPresetsPanel = vgui.Create("DPanel", self)
     self.TraitorPresetsPanel:SetSize(ScrW(), ScrH())
     self.TraitorPresetsPanel:SetPos(0, 0)
@@ -1813,7 +1759,6 @@ function PANEL:CreateTraitorMenuPanel()
         surface.DrawOutlinedRect(0, 0, w, h, 2)
     end
 
-    -- State
     local savedData = file.Read("meleecity_traitor_loadout.txt", "DATA")
     local parsedLoadout = nil
     if isstring(savedData) and savedData ~= "" then
@@ -2134,7 +2079,6 @@ function PANEL:CreateTraitorMenuPanel()
 
     local RefreshLoadoutUI
 
-    -- === LEFT PANEL: PRESETS ===
     local presetsBottomPanel = vgui.Create("DPanel", leftPanel)
     presetsBottomPanel:Dock(BOTTOM)
     presetsBottomPanel:SetTall(ScreenScale(30))
@@ -2288,7 +2232,6 @@ function PANEL:CreateTraitorMenuPanel()
     end
     RefreshPresetsUI()
 
-    -- === RIGHT PANEL: LOADOUT ===
     local rightContentContainer = vgui.Create("DPanel", rightPanel)
     rightContentContainer:Dock(FILL)
     rightContentContainer.Paint = function() end
@@ -2575,13 +2518,10 @@ function PANEL:CreateAppearancePanel()
     self.AppearancePanel:SetAlpha(0)
     self.AppearancePanel:SetVisible(false)
     
-    -- Custom behavior for embedded panel
     self.AppearancePanel.IsEmbedded = true
     
-    -- Override Close to switch back to main
     local oldClose = self.AppearancePanel.Close
     self.AppearancePanel.Close = function(pnl)
-        -- Save appearance to file
         local currentAppearance = self.AppearancePanel.AppearanceTable
         if currentAppearance and hg.Appearance then
              local fileName = hg.Appearance.SelectedAppearance and hg.Appearance.SelectedAppearance:GetString() or "main"
@@ -2589,21 +2529,19 @@ function PANEL:CreateAppearancePanel()
              
              hg.Appearance.CreateAppearanceFile(fileName, currentAppearance)
 
-             -- Send to server to apply immediately
              net.Start("Get_Appearance")
                  net.WriteTable(currentAppearance)
-                 net.WriteBool(false) -- Not random
+                 net.WriteBool(false)
              net.SendToServer()
         end
 
-        -- Don't actually remove, just switch state
         self:SwitchToMain()
     end
 end
 
 function PANEL:OnRemove()
     if LocalPlayer and IsValid(LocalPlayer()) then
-        LocalPlayer():SetDSP(0) -- Reset DSP
+        LocalPlayer():SetDSP(0)
     end
     
     if IsValid(ZCityMainMenuMusic) then
@@ -2619,20 +2557,6 @@ function PANEL:OnRemove()
     end
 end
 
---[[
-["5.42.211.48:24215"]:
-		["addr"]	=	5.42.211.48:24215
-		["map"]	=	hmcd_metropolis_extended
-		["max_players"]	=	20
-		["name"]	=	Z-City 1 | Beta | RU
-		["players"]	=	20
-["5.42.211.48:24217"]:
-		["addr"]	=	5.42.211.48:24217
-		["map"]	=	hmcd_metropolis_extended
-		["max_players"]	=	20
-		["name"]	=	Z-City 2 | Beta | RU
-		["players"]	=	18
-]]
 local cardcolor = Color(15,15,25,220)
 local green_color = Color(55,225,55)
 function PANEL:AddServerCard(serverTbl)
@@ -2688,7 +2612,6 @@ function PANEL:AddServerCard(serverTbl)
 end
 
 function PANEL:First( ply )
-    --self:MoveTo(self:GetX(), self:GetY() - self:GetTall()/2, 0.5, 0, 0.2, function() end)
     self:AlphaTo( 255, 0.1, 0, nil )
 end
 
@@ -2697,11 +2620,9 @@ local gradient_r = surface.GetTextureID("vgui/gradient-r")
 local gradient_l = surface.GetTextureID("vgui/gradient-l")
 
 function PANEL:Paint(w,h)
-    -- Black Background Layer (Always behind everything)
     surface.SetDrawColor(0, 0, 0, 255)
     surface.DrawRect(0, 0, w, h)
     
-    -- Transition Logic for Backgrounds
     local progress = 0
     if self.TargetState == "Settings" or self.TargetState == "Appearance" or self.TargetState == "Achievements" or self.TargetState == "TraitorMenu" or self.TargetState == "TraitorPresets" then
         progress = self.TransitionProgress
@@ -2711,9 +2632,7 @@ function PANEL:Paint(w,h)
     local imageTransitionShakeX = self.TransitionImageShakeX or 0
     local imageTransitionShakeY = self.TransitionImageShakeY or 0
     
-    -- Main Background
     if progress < 1 or self.TargetState == "Appearance" or self.TargetState == "TraitorMenu" or self.TargetState == "TraitorPresets" then
-        -- Keep drawing if we are going to these menus
         surface.SetDrawColor( 80, 80, 80, 255 )
         if self.TargetState == "Settings" or (self.TargetState == "Main" and self.CurrentState == "Settings") or self.TargetState == "Achievements" or (self.TargetState == "Main" and self.CurrentState == "Achievements") then
              surface.SetDrawColor( 80, 80, 80, 255 * (1 - progress) )
@@ -2739,7 +2658,6 @@ function PANEL:Paint(w,h)
                 offsetX = (w - zoomedW) / 2 + (w * progress)
                 offsetY = (h - zoomedH) / 2
             elseif self.TargetState == "TraitorMenu" or (self.TargetState == "Main" and self.CurrentState == "TraitorMenu") or self.TargetState == "TraitorPresets" or (self.TargetState == "Main" and self.CurrentState == "TraitorPresets") then
-                -- Move the main background DOWN as camera moves UP
                 offsetX = (w - zoomedW) / 2
                 offsetY = (h - zoomedH) / 2 + (h * progress)
             else
@@ -2754,7 +2672,6 @@ function PANEL:Paint(w,h)
         end
     end
     
-    -- Background 2 (Settings) - Moves In from Right
     if progress > 0 and (self.TargetState == "Settings" or (self.TargetState == "Main" and self.CurrentState == "Settings")) then
         surface.SetDrawColor( 80, 80, 80, 255 * progress )
         if not BgMat2:IsError() then
@@ -2771,7 +2688,6 @@ function PANEL:Paint(w,h)
         end
     end
 
-    -- Background 3 (Appearance)
     if progress > 0 and (self.TargetState == "Appearance" or (self.TargetState == "Main" and self.CurrentState == "Appearance")) then
         surface.SetDrawColor( 80, 80, 80, 255 * progress )
         if not BgMat3:IsError() then
@@ -2809,8 +2725,6 @@ function PANEL:Paint(w,h)
             local zoomedW, zoomedH = w * scale, h * scale
             local offsetX = (w - zoomedW) / 2
             
-            -- If viewpoint moves UP, background moves DOWN. 
-            -- Starts at -h (above screen) and moves to 0.
             local offsetY = (h - zoomedH) / 2 - h * (1 - progress)
             
             if (self.TargetState == "TraitorPresets" and self.CurrentState == "TraitorMenu") or (self.TargetState == "TraitorMenu" and self.CurrentState == "TraitorPresets") then
@@ -2851,45 +2765,35 @@ function PANEL:Paint(w,h)
     end
 
     
-    -- Draw Flashing Image (Bottom Right in Settings) - BEFORE VHS
     if self.CurrentFlashImage and type(self.CurrentFlashImage) == "IMaterial" and not self.CurrentFlashImage:IsError() and self.FlashAlpha > 0 and (self.TargetState == "Settings" or self.CurrentState == "Settings") then
-        surface.SetDrawColor(80, 80, 80, self.FlashAlpha) -- Made darker (150 -> 80)
+        surface.SetDrawColor(80, 80, 80, self.FlashAlpha)
         surface.SetMaterial(self.CurrentFlashImage)
         
-        -- Made wider as requested (160 vs 128)
         local imgW = ScreenScale(160) 
-        -- Made taller as requested (180 vs 128)
         local imgH = ScreenScale(180)
         
-        -- Slide offset to move with Settings background
         local slideOffset = w * (1 - progress)
         
-        -- Located directly at bottom right corner (no margin) + slide offset
         local imgX = (w - imgW) + slideOffset
         local imgY = h - imgH
         
-        -- Micro Shakes
         local shakeX = math.random(-2, 2)
         local shakeY = math.random(-2, 2)
         
         surface.DrawTexturedRect(imgX + shakeX + imageTransitionShakeX, imgY + shakeY + imageTransitionShakeY, imgW, imgH)
     end
 
-    -- VHS Static Effect (On top of backgrounds AND flashing images)
     surface.SetMaterial(NoiseMat)
-    -- Reset to white/transparent to let the material handle the look, slightly transparent
     surface.SetDrawColor(255, 255, 255, 40) 
     local noiseU = math.random()
     local noiseV = math.random()
     surface.DrawTexturedRectUV(0, 0, w, h, noiseU, noiseV, noiseU + (w/256), noiseV + (h/256))
     
-    -- Occasional stronger glitch line
     if math.random() > 0.995 then
         surface.SetDrawColor(60, 60, 60, 50)
         surface.DrawRect(0, math.random(0, h), w, math.random(1, 2))
     end
     
-    -- Title Transition Logic
     local mainTitle = "MELEECITY"
     local subtitle = "SPLIT EDITION"
 
@@ -2924,34 +2828,56 @@ function PANEL:Paint(w,h)
     local titleX = titleBaseX + offX
     local titleY = titleBaseY + offY
 
-    local titleMat = Matrix()
-    titleMat:Translate(Vector(titleX + driftX, titleY + driftY, 0))
-    titleMat:Scale(Vector(1, self.TitleStretch or 1.35, 1))
+    local openTime = self.OpenTime or (time - 99)
+    local titleK = math.Clamp((time - openTime - 0.1) / 0.45, 0, 1)
+    if titleK > 0 then
+        local introS = titleK - 1
+        local dropF = 1 + 2.70158 * introS * introS * introS + 1.70158 * introS * introS
+        titleY = titleY - (1 - dropF) * ScrH() * 0.09
 
-    cam.PushModelMatrix(titleMat)
-    surface.SetTextColor(232, 232, 232, 255)
-    surface.SetTextPos(0, 0)
-    surface.DrawText(mainTitle)
-    cam.PopModelMatrix()
+        local titleMat = Matrix()
+        titleMat:Translate(Vector(titleX + driftX, titleY + driftY, 0))
+        titleMat:Scale(Vector(1, self.TitleStretch or 1.35, 1))
 
-    surface.SetFont("ZC_MM_SubTitle")
-    local tracking = ScreenScaleH(7)
-    local total = 0
-    for i = 1, #subtitle do
-        total = total + surface.GetTextSize(string.sub(subtitle, i, i))
-        if i < #subtitle then
-            total = total + tracking
-        end
+        cam.PushModelMatrix(titleMat)
+        surface.SetTextColor(232, 232, 232, 255 * math.min(titleK * 3, 1))
+        surface.SetTextPos(0, 0)
+        surface.DrawText(mainTitle)
+        cam.PopModelMatrix()
     end
-    local subX = (w - total) / 2 + offX
-    local subY = titleY + self.MainTitleH + self.SubGap
-    surface.SetTextColor(200, 200, 200, 235)
-    for i = 1, #subtitle do
-        local char = string.sub(subtitle, i, i)
-        local cw = surface.GetTextSize(char)
-        surface.SetTextPos(subX + driftX, subY + driftY)
-        surface.DrawText(char)
-        subX = subX + cw + tracking
+
+    local subStart = self.SubStart or 0
+    if subStart > 0 and time >= subStart then
+        local popK = math.Clamp((time - subStart) / 0.12, 0, 1)
+
+        surface.SetFont("ZC_MM_SubTitle")
+        local tracking = ScreenScaleH(7)
+        local total = 0
+        for i = 1, #subtitle do
+            total = total + surface.GetTextSize(string.sub(subtitle, i, i))
+            if i < #subtitle then
+                total = total + tracking
+            end
+        end
+        local subX = (w - total) / 2 + offX
+        local subY = titleY + self.MainTitleH + self.SubGap
+        local subC = subX + total / 2
+
+        local subMat = Matrix()
+        subMat:Translate(Vector(subC, subY + driftY, 0))
+        subMat:Scale(Vector(1 + (1 - popK) * 0.2, 1 + (1 - popK) * 0.2, 1))
+        subMat:Translate(Vector(-subC, 0, 0))
+
+        cam.PushModelMatrix(subMat)
+        surface.SetTextColor(200, 200, 200, 235)
+        for i = 1, #subtitle do
+            local char = string.sub(subtitle, i, i)
+            local cw = surface.GetTextSize(char)
+            surface.SetTextPos(subX + driftX, subY)
+            surface.DrawText(char)
+            subX = subX + cw + tracking
+        end
+        cam.PopModelMatrix()
     end
     
     if self.IsIntro then
@@ -2961,7 +2887,6 @@ function PANEL:Paint(w,h)
         local tx = w - tw - ScreenScale(20)
         local ty = h - th - ScreenScale(20)
         
-        -- Blink logic
         local blinkSpeed = 2
         local alpha = math.abs(math.sin(CurTime() * blinkSpeed)) * 255
         
@@ -2969,10 +2894,9 @@ function PANEL:Paint(w,h)
         surface.SetTextPos(tx, ty)
         surface.DrawText(enterText)
         
-        -- Intro Sequence Fade to Black
         if self.IntroSequenceActive then
             local elapsedTime = CurTime() - self.IntroStartTime
-            local duration = 3 -- Fade out duration
+            local duration = 3
             local fadeAlpha = math.Clamp((elapsedTime / duration) * 255, 0, 255)
             
             surface.SetDrawColor(0, 0, 0, fadeAlpha)
@@ -2981,7 +2905,6 @@ function PANEL:Paint(w,h)
             if elapsedTime >= duration then
                 self:Close()
                 
-                -- Create Fade Out Panel (Black -> Clear)
                 local fadePanel = vgui.Create("DPanel")
                 fadePanel:SetSize(ScrW(), ScrH())
                 fadePanel:MakePopup()
@@ -3001,7 +2924,6 @@ function PANEL:Paint(w,h)
                     end
                 end
                 
-                -- Mark intro as seen
                 ZCityHasSeenIntro = true
             end
         end
@@ -3031,6 +2953,7 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     if tbl.CreatedFunc then tbl.CreatedFunc(btn, self, luaMenu) end
     
     function btn:DoClick()
+        if (self.IntroK or 1) < 1 then return end
         sound.PlayFile("sound/press.mp3", "noblock", function(station) if IsValid(station) then station:Play() end end)
         btn.Func(luaMenu)
     end
@@ -3061,12 +2984,12 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     end
 
     function btn:Paint(w, h)
+        if (self.IntroK or 1) < 1 then return true end
         local font = self:GetFont()
         local text = self:GetText()
         surface.SetFont(font)
         local tw, th = surface.GetTextSize(text)
         
-        -- Add padding to width for border
         local padding = ScreenScale(4)
         local totalW = tw + padding * 2
 
@@ -3120,7 +3043,7 @@ hook.Add("OnPauseMenuShow","OpenMainMenu",function()
 
     if MainMenu and IsValid(MainMenu) then
         if MainMenu.IsIntro then
-            return false -- Prevent closing intro menu with ESC
+            return false
         end
         MainMenu:Close()
         MainMenu = nil
@@ -3134,21 +3057,17 @@ end)
 
 
 hook.Add("InitPostEntity", "ZCityOpenIntroMenu", function()
-    -- Use a timer to ensure everything is fully loaded before opening
     timer.Simple(1, function()
         if not ZCityHasSeenIntro then
-            -- Open the menu automatically on join
             if MainMenu and IsValid(MainMenu) then MainMenu:Remove() end
             MainMenu = vgui.Create("ZMainMenu")
             MainMenu:MakePopup()
-            -- Force intro state
             MainMenu.IsIntro = true
-            MainMenu:SetAlpha(255) -- Force visible immediately
+            MainMenu:SetAlpha(255)
         end
     end)
 end)
 
--- Force open on file refresh for testing (if not seen intro)
 timer.Simple(0.1, function()
     if not ZCityHasSeenIntro and (not MainMenu or not IsValid(MainMenu)) then
         MainMenu = vgui.Create("ZMainMenu")
@@ -3165,7 +3084,7 @@ hook.Add("OnPauseMenuShow","OpenMainMenu",function()
 
     if MainMenu and IsValid(MainMenu) then
         if MainMenu.IsIntro then
-            return false -- Prevent closing intro menu with ESC
+            return false
         end
         MainMenu:Close()
         MainMenu = nil
@@ -3179,21 +3098,17 @@ end)
 
 
 hook.Add("InitPostEntity", "ZCityOpenIntroMenu", function()
-    -- Use a timer to ensure everything is fully loaded before opening
     timer.Simple(1, function()
         if not ZCityHasSeenIntro then
-            -- Open the menu automatically on join
             if MainMenu and IsValid(MainMenu) then MainMenu:Remove() end
             MainMenu = vgui.Create("ZMainMenu")
             MainMenu:MakePopup()
-            -- Force intro state
             MainMenu.IsIntro = true
-            MainMenu:SetAlpha(255) -- Force visible immediately
+            MainMenu:SetAlpha(255)
         end
     end)
 end)
 
--- Force open on file refresh for testing (if not seen intro)
 timer.Simple(0.1, function()
     if not ZCityHasSeenIntro and (not MainMenu or not IsValid(MainMenu)) then
         MainMenu = vgui.Create("ZMainMenu")
