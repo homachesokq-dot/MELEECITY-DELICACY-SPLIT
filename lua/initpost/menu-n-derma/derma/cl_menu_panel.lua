@@ -51,6 +51,7 @@ local Selects = {
             RunConsoleCommand("disconnect")
         end)
     end},
+    {Title = "Secret^_^", Corner = true, Func = function(luaMenu) luaMenu:PlaySecretFlash() end},
 }
 
 surface.CreateFont("ZCity_Veteran", {
@@ -83,12 +84,14 @@ surface.CreateFont("ZC_MM_SubTitle", {
 
 local Pluv = Material("pluv/pluvkid.jpg")
 local LogoMat = Material("vgui/logo.png")
-local BgMat = Material("vgui/background.png")
+local BgMat = Material("meleecity/mainmenu.jpg")
 local EyeMat = Material("vgui/eye.png")
-local BgMat2 = Material("vgui/background2.png")
-local BgMat3 = Material("vgui/background6.png")
+local BgMat2 = Material("meleecity/settings.jpg")
+local BgMat3 = Material("meleecity/apperancemenu.jpg")
 local BgMat4 = Material("vgui/pickman.png")
 local BgMat4Overlay = Material("vgui/background4.png")
+local SecretMat = Material("meleecity/secret.jpg")
+local SecretMat2 = Material("meleecity/secret2.jpg")
 local NoiseMat = Material("vgui/noisevhs")
 if NoiseMat:IsError() then
     NoiseMat = Material("vgui/white")
@@ -134,6 +137,30 @@ ZCityMenuMusicState = ZCityMenuMusicState or {
     pendingResumeTime = 0
 }
 
+local function ZCityMusicTrackValid(station, expectedPath, stateKey)
+    if not IsValid(station) then return false end
+
+    local ok, name = pcall(station.GetFileName, station)
+    if ok and name == expectedPath then return true end
+
+    if not ok or name ~= expectedPath then
+        station:Stop()
+        if stateKey then
+            ZCityMenuMusicState[stateKey] = 0
+        end
+    end
+
+    return false
+end
+
+if not ZCityMusicTrackValid(ZCityMainMenuMusic, "sound/meleecity/menuBUCKSHOT.mp3", "mainTime") then
+    ZCityMainMenuMusic = nil
+end
+
+if not ZCityMusicTrackValid(ZCityAppearanceMusic, "sound/meleecity/menuBUCKSHOT.mp3", "appearanceTime") then
+    ZCityAppearanceMusic = nil
+end
+
 local function ZCityCaptureMenuMusicTimes()
     if IsValid(ZCityMainMenuMusic) then
         local t = ZCityMainMenuMusic:GetTime()
@@ -169,7 +196,7 @@ local function ZCityResumeMainMusic()
         return
     end
 
-    sound.PlayFile("sound/meleecity/its_2am.mp3", "noblock", function(station)
+    sound.PlayFile("sound/meleecity/menuBUCKSHOT.mp3", "noblock", function(station)
         if not IsValid(station) then return end
         station:EnableLooping(true)
         station:SetVolume(0.5)
@@ -193,7 +220,7 @@ local function ZCityResumeAppearanceMusic()
         return
     end
 
-    sound.PlayFile("sound/sexualdeviants.mp3", "noblock", function(station)
+    sound.PlayFile("sound/meleecity/menuBUCKSHOT.mp3", "noblock", function(station)
         if not IsValid(station) then return end
         station:EnableLooping(true)
         station:SetVolume(1)
@@ -333,7 +360,7 @@ function PANEL:Init()
         ZCityMainMenuMusic:Play()
         ZCityMainMenuMusic:SetVolume(0.5)
     else
-        sound.PlayFile("sound/meleecity/its_2am.mp3", "noblock", function(station, errCode, errStr)
+        sound.PlayFile("sound/meleecity/menuBUCKSHOT.mp3", "noblock", function(station, errCode, errStr)
             if IsValid(station) then
                 station:EnableLooping(true)
                 station:SetVolume(0.5)
@@ -377,6 +404,7 @@ function PANEL:Init()
         local w = panel:GetWide()
         for i, btn in ipairs(self.Buttons) do
             if IsValid(btn) then
+                if btn.Corner then continue end
                 local shouldShow = true
                 if btn.ShouldShow then
                     shouldShow = btn:ShouldShow()
@@ -445,7 +473,7 @@ end
 function PANEL:Think()
     if not self.SubPlayed and self.SubStart and CurTime() >= self.SubStart + 0.12 then
         self.SubPlayed = true
-        surface.PlaySound("snd_jack_hmcd_knifehit.wav")
+        surface.PlaySound("hits/headshot" .. math.random(1, 2) .. ".wav")
     end
 
     if LocalPlayer and IsValid(LocalPlayer()) then
@@ -875,26 +903,15 @@ function PANEL:SwitchToAppearance()
         ZCityAppearanceMusic:SetVolume(0)
         self:FadeMusic(ZCityAppearanceMusic, 1, 1)
     else
-        sound.PlayFile("sound/sexualdeviants.mp3", "noblock", function(station, errCode, errStr)
+        sound.PlayFile("sound/meleecity/menuBUCKSHOT.mp3", "noblock", function(station, errCode, errStr)
             if IsValid(station) then
                 station:EnableLooping(true)
                 station:SetVolume(0)
                 station:Play()
-                self:FadeMusic(station, 1, 1)
                 ZCityAppearanceMusic = station
+                self:FadeMusic(station, 1, 1)
             else
-                print("Error playing appearance music (sound/sexualdeviants.mp3):", errCode, errStr)
-                sound.PlayFile("sexualdeviants.mp3", "noblock", function(station2, errCode2, errStr2)
-                    if IsValid(station2) then
-                        station2:EnableLooping(true)
-                        station2:SetVolume(0)
-                        station2:Play()
-                        self:FadeMusic(station2, 1, 1)
-                        ZCityAppearanceMusic = station2
-                    else
-                         print("Error playing appearance music fallback (sexualdeviants.mp3):", errCode2, errStr2)
-                    end
-                end)
+                print("Error playing appearance music:", errCode, errStr)
             end
         end)
     end
@@ -2925,12 +2942,59 @@ function PANEL:Paint(w,h)
             end
         end
     end
+
+    if not (self.IsIntro and not self.IntroSequenceActive) then
+        surface.SetFont("ZC_MM_SubTitle")
+        local _, vH = surface.GetTextSize("version: alpha")
+        draw.SimpleText("version: alpha", "ZC_MM_SubTitle", w / 2, h - vH - ScreenScaleH(12), Color(170, 170, 170, 130), TEXT_ALIGN_CENTER, TEXT_ALIGN_BASELINE)
+    end
+
+    if self.SecretFlashStart then
+        local t = CurTime() - self.SecretFlashStart
+        local k
+        if t < 0.5 then
+            k = t / 0.5
+        elseif t < 2 then
+            k = 1
+        else
+            k = 1 - (t - 2) / 2
+        end
+
+        k = math.Clamp(k, 0, 1)
+
+        if k <= 0 and t >= 4 then
+            self.SecretFlashStart = nil
+        elseif self.SecretFlashMat and not self.SecretFlashMat:IsError() then
+            local shakeX = math.random(-2, 2)
+            local shakeY = math.random(-2, 2)
+
+            surface.SetDrawColor(255, 255, 255, 255 * k)
+            surface.SetMaterial(self.SecretFlashMat)
+            surface.DrawTexturedRect(shakeX, shakeY, w, h)
+        end
+    end
+end
+
+function PANEL:PlaySecretFlash()
+    self.SecretFlashStart = CurTime()
+    self.SecretFlashMat = math.random(2) == 1 and SecretMat or SecretMat2
+
+    for _ = 1, 3 do
+        sound.PlayFile("sound/goodbye.mp3", "noblock", function(station)
+            if IsValid(station) then
+                station:SetPlaybackRate(0.9)
+                station:SetVolume(1)
+                station:Play()
+            end
+        end)
+    end
 end
 
 function PANEL:AddSelect( pParent, strTitle, tbl )
     local id = #self.Buttons + 1
-    self.Buttons[id] = vgui.Create( "DLabel", pParent )
+    self.Buttons[id] = vgui.Create( "DLabel", tbl.Corner and self or pParent )
     local btn = self.Buttons[id]
+    btn.Corner = tbl.Corner == true
     btn:SetText( strTitle )
     btn:SetMouseInputEnabled( true )
     btn:SetFont( "ZCity_Veteran" )
@@ -2974,10 +3038,32 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
                     ntxt = ntxt .. char 
                 end 
             end 
-            if self:GetText() ~= ntxt then 
-                self:SetText(ntxt) 
-            end 
-        end 
+            if self:GetText() ~= ntxt then
+                self:SetText(ntxt)
+            end
+        end
+    end
+
+    if tbl.Corner then
+        local menu = self
+        local baseThink = btn.Think
+        btn.Think = function(s, ...)
+            if baseThink then baseThink(s, ...) end
+
+            local t = CurTime()
+            s.IntroK = math.Clamp((t - ((menu.BtnStart or t) + (id - 1) * 0.085)) / 0.22, 0, 1)
+
+            s:SizeToContents()
+            s:SetWide(s:GetWide() + ScreenScaleH(8))
+            s:SetTall(math.max(ScreenScaleH(18), s:GetTall()))
+
+            local introDrop = (1 - s.IntroK) * ScreenScaleH(26)
+            s:SetPos(ScrW() - s:GetWide() - ScreenScaleH(24), ScrH() - s:GetTall() - ScreenScaleH(20) + introDrop)
+
+            local show = menu.CurrentState == "Main" and menu.TargetState == "Main"
+            if menu.IsIntro and not menu.IntroSequenceActive then show = false end
+            s:SetVisible(show)
+        end
     end
 
     function btn:Paint(w, h)

@@ -600,10 +600,12 @@ function PANEL:PostInit()
         tbl.ABodygroups = tbl.ABodygroups or {}
         for k, v in ipairs(bodygroups) do
             if !tbl.ABodygroups[v.name] then continue end
+            local bgDef = hg.Appearance.Bodygroups[v.name]
+            local bgData = bgDef and bgDef[tMdl.sex and 2 or 1] and bgDef[tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]]
+            if not bgData then continue end
             for i = 0, #v.submodels do
                 local b = v.submodels[i]
-                if not hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]] then continue end
-                if hg.Appearance.Bodygroups[v.name][tMdl.sex and 2 or 1][tbl.ABodygroups[v.name]][1] != b then continue end
+                if bgData[1] != b then continue end
                 Entity:SetBodygroup(k-1,i)
             end
         end

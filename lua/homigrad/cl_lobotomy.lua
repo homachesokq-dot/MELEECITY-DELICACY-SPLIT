@@ -44,6 +44,9 @@ local typedTimes = {}
 local noAmmo = false
 local phraseFont = "HG_LobotomyPhrase"
 local phraseFontSize = 0
+local vignetteShader = Material("effects/shaders/zb_vignette")
+local painShader = Material("effects/shaders/zb_grain")
+local vignetteLerp = 0
 
 local function EnsurePhraseFont(text)
 	if not text or text == "" then return end
@@ -214,20 +217,18 @@ local function DrawRedIntro(now)
 	local t = now - startTime
 	if t < 0 or t >= redTime then return end
 
-	local k = 1 - t / redTime
+	local k = math.Clamp(t / 0.3, 0, 1) * math.Clamp((redTime - t) / 0.5, 0, 1)
 
-	surface.SetDrawColor(90, 0, 0, 60 * k)
-	surface.DrawRect(0, 0, ScrW(), ScrH())
+	render.UpdateScreenEffectTexture()
 
-	for _ = 1, 10 do
-		local w = math.Rand(30, 260) * ScreenScale(1)
-		local h = math.Rand(2, 10) * ScreenScale(1)
-		local x = math.Rand(-w, ScrW())
-		local y = math.Rand(0, ScrH())
+	painShader:SetFloat("$c2_x", now + 10000)
+	painShader:SetFloat("$c0_y", 0.8)
+	painShader:SetFloat("$c0_z", 2)
+	painShader:SetFloat("$c1_x", 0.55 * k)
+	painShader:SetFloat("$c1_y", 0.75 * k)
 
-		surface.SetDrawColor(math.random(110, 190), 0, 0, math.random(20, 70) * k)
-		surface.DrawRect(x, y, w, h)
-	end
+	render.SetMaterial(painShader)
+	render.DrawScreenQuad()
 end
 
 local function DrawIntroBlack(now)
@@ -416,9 +417,6 @@ local function DrawResult(now)
 	surface.SetDrawColor(resultColor.r, resultColor.g, resultColor.b, 150 * k)
 	surface.DrawRect(0, 0, ScrW(), ScrH())
 end
-
-local vignetteShader = Material("effects/shaders/zb_vignette")
-local vignetteLerp = 0
 
 hook.Add("DrawOverlay", "HG_LobotomyOverlay", function()
 	local now = CurTime()
