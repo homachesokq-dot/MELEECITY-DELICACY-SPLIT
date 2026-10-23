@@ -347,6 +347,10 @@ function PANEL:Init()
 
     self.Buttons = {}
     self.menuList = vgui.Create("DScrollPanel", self)
+    self.menuList:SetPaintBackground(false)
+    self.menuList.Paint = function() end
+    self.menuList:GetCanvas().Paint = function() end
+    self.menuList:GetVBar():SetVisible(false)
     self.menuList:SetPos(self.MenuX, self.MenuTop)
     local maxMenuHeight = math.min(ScrH() - self.MenuTop - ScreenScaleH(40), ScrH() * 0.8)
     self.menuList:SetSize(math.min(self.MenuW, ScrW() * 0.9), maxMenuHeight)
@@ -408,7 +412,6 @@ function PANEL:Init()
         for i, btn in ipairs(self.Buttons) do
             if IsValid(btn) and btn.BaseY then
                 local introK = math.Clamp((t - ((self.BtnStart or t) + (i - 1) * 0.085)) / 0.22, 0, 1)
-                btn:SetAlpha(introK * 255)
                 btn.IntroK = introK
                 local waveX = math.sin(t * 28 + i * 0.75) * waveAmp
                 local waveY = math.cos(t * 24 + i * 0.65) * waveAmp * 0.85
@@ -2978,44 +2981,48 @@ function PANEL:AddSelect( pParent, strTitle, tbl )
     end
 
     function btn:Paint(w, h)
-        if (self.IntroK or 1) < 1 then return true end
+        local introA = math.min(self.IntroK or 1, 1)
+        if introA <= 0 then return true end
         local font = self:GetFont()
         local text = self:GetText()
         surface.SetFont(font)
         local tw, th = surface.GetTextSize(text)
-        
+
         local padding = ScreenScale(4)
         local totalW = tw + padding * 2
 
         if self:IsHovered() then
-            if not self.HoveredSoundPlayed then
-                sound.PlayFile("sound/hover.ogg", "noblock", function(station) if IsValid(station) then station:Play() end end)
-                self.HoveredSoundPlayed = true
+            if introA > 0.9 then
+                if not self.HoveredSoundPlayed then
+                    sound.PlayFile("sound/hover.ogg", "noblock", function(station) if IsValid(station) then station:Play() end end)
+                    self.HoveredSoundPlayed = true
+                end
             end
-            
+
             local alpha = 255
             if math.random() > 0.9 then alpha = math.random(50, 200) end
-            
-            surface.SetDrawColor(255, 255, 255, alpha)
+
+            surface.SetDrawColor(255, 255, 255, alpha * introA)
             surface.DrawRect(0, 0, totalW, h)
-            self:SetTextColor(Color(0, 0, 0, alpha))
+            self:SetTextColor(Color(0, 0, 0, alpha * introA))
         else
             self.HoveredSoundPlayed = false
-            self:SetTextColor(Color(255, 255, 255))
+            self:SetTextColor(Color(255, 255, 255, 255 * introA))
         end
-        
+
         local offX, offY = 0, 0
         if math.random() > 0.9 then
              offX = math.random(-2, 2)
              offY = math.random(-2, 2)
         end
-        
-        draw.SimpleText(text, font, padding + offX, h/2 + offY, self:GetTextColor(), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-        
+
+        local textColor = self:GetTextColor()
+        draw.SimpleText(text, font, padding + offX, h/2 + offY, Color(textColor.r, textColor.g, textColor.b, (textColor.a or 255) * introA), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+
         if self:IsHovered() and math.random() > 0.7 then
             local offsetX = math.random(-5, 5)
             local offsetY = math.random(-2, 2)
-            draw.SimpleText(text, font, padding + offsetX, h/2 + offsetY, Color(0, 0, 0, math.random(50, 150)), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+            draw.SimpleText(text, font, padding + offsetX, h/2 + offsetY, Color(0, 0, 0, math.random(50, 150) * introA), TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
         end
         return true
     end
