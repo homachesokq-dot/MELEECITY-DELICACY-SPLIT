@@ -67,6 +67,20 @@ surface.CreateFont("ZC_MM_Title", {
     weight = 800,
     antialias = true
 })
+
+surface.CreateFont("ZC_MM_MainTitle", {
+    font = "Times New Roman",
+    size = ScreenScaleH(58),
+    weight = 700,
+    antialias = true
+})
+
+surface.CreateFont("ZC_MM_SubTitle", {
+    font = "Veteran Typewriter",
+    size = ScreenScaleH(12),
+    weight = 500,
+    antialias = true
+})
 -- local Title = markup.Parse("error")
 
 local Pluv = Material("pluv/pluvkid.jpg")
@@ -286,14 +300,20 @@ function PANEL:Init()
         LogoMat = Material("vgui/logo")
     end
 
-    self.LogoX = ScreenScaleH(20)
-    self.LogoY = ScreenScaleH(20)
-    
-    surface.SetFont("ZC_MM_Title")
-    local _, th = surface.GetTextSize("MELEECITY DELICACY:SPLIT EDITION")
-    self.LogoH = th
+    self.LogoY = ScreenScaleH(26)
 
-    self.MenuTop = self.LogoY + self.LogoH + ScreenScaleH(60)
+    surface.SetFont("ZC_MM_MainTitle")
+    local _, mainH = surface.GetTextSize("MELEECITY")
+
+    surface.SetFont("ZC_MM_SubTitle")
+    local _, subH = surface.GetTextSize("SPLIT EDITION")
+
+    self.TitleStretch = 1.55
+    self.MainTitleH = mainH * self.TitleStretch
+    self.SubGap = ScreenScaleH(10)
+    self.LogoH = self.MainTitleH + self.SubGap + subH
+
+    self.MenuTop = self.LogoY + self.LogoH + math.max(ScreenScaleH(120), ScrH() * 0.16)
     
     surface.SetFont("ZCity_Veteran")
     local widest = 0
@@ -305,7 +325,7 @@ function PANEL:Init()
         end
     end
     self.MenuW = math.max(ScreenScaleH(260), widest + ScreenScaleH(40))
-    self.MenuX = self.LogoX -- Align with logo
+    self.MenuX = math.max((ScrW() - self.MenuW) / 2, 0)
 
     self.lDock = vgui.Create("DPanel",self)
     local lDock = self.lDock
@@ -369,6 +389,7 @@ function PANEL:Init()
                 btn:SizeToContents()
                 btn:SetWide(btn:GetWide() + ScreenScaleH(8))
                 btn:SetTall(math.max(panel.ButtonHeight, btn:GetTall())) -- Use max height
+                btn.BaseX = math.floor((panel:GetWide() - btn:GetWide()) / 2)
                 btn.BaseY = y
                 y = y + btn:GetTall() + panel.Spacing
             end
@@ -392,7 +413,7 @@ function PANEL:Init()
             if IsValid(btn) and btn.BaseY then
                 local waveX = math.sin(t * 28 + i * 0.75) * waveAmp
                 local waveY = math.cos(t * 24 + i * 0.65) * waveAmp * 0.85
-                btn:SetPos(math.Round(baseOffsetX + waveX), btn.BaseY + math.Round(baseOffsetY + waveY))
+                btn:SetPos(math.Round((btn.BaseX or 0) + baseOffsetX + waveX), btn.BaseY + math.Round(baseOffsetY + waveY))
             end
         end
     end
@@ -735,9 +756,9 @@ function PANEL:Think()
 
     if IsValid(self.SettingsList) then
         if self.TargetState == "Settings" or (self.TargetState == "Main" and self.CurrentState == "Settings") then
-            self.SettingsList:SetPos(self.MenuX + ScrW() * (1 - eased_t) + (self.TransitionShakeX or 0), self.MenuTop + (self.TransitionShakeY or 0))
+            self.SettingsList:SetPos(0 + ScrW() * (1 - eased_t) + (self.TransitionShakeX or 0), 0 + (self.TransitionShakeY or 0))
         else
-            self.SettingsList:SetPos(self.MenuX + (self.TransitionShakeX or 0), self.MenuTop + (self.TransitionShakeY or 0))
+            self.SettingsList:SetPos(0 + (self.TransitionShakeX or 0), 0 + (self.TransitionShakeY or 0))
         end
     end
 
@@ -1294,10 +1315,9 @@ function PANEL:CreateSettingsPanel()
     if IsValid(self.SettingsList) then return end
     
     self.SettingsList = vgui.Create("DScrollPanel", self)
-    self.SettingsList:SetPos(self.MenuX, self.MenuTop)
-    -- Extend width to cover more of the screen (e.g., 75% of screen width)
-    local maxSettingsHeight = math.min(ScrH() - self.MenuTop - ScreenScale(60), ScrH() * 0.8)
-    self.SettingsList:SetSize(math.min(ScrW() * 0.75, ScrW() * 0.9), maxSettingsHeight)
+    self.SettingsList:SetPos(0, 0)
+    self.SettingsList:SetSize(ScrW(), ScrH())
+    self.SettingsList:GetCanvas():DockPadding(0, ScreenScaleH(16), 0, ScreenScaleH(20))
     self.SettingsList:SetAlpha(0)
     self.SettingsList:SetVisible(false)
     self.SettingsList.ButtonHeight = ScreenScale(18)
@@ -2870,52 +2890,69 @@ function PANEL:Paint(w,h)
     end
     
     -- Title Transition Logic
-    local text1 = "MELEECITY DELICACY:SPLIT EDITION"
-    
-    surface.SetFont("ZC_MM_Title")
-    
-    -- Always Draw Main Title (No Transition)
+    local mainTitle = "MELEECITY"
+    local subtitle = "SPLIT EDITION"
+
     local time = CurTime()
-    local blink_chance = math.sin(time * 0.5)
-    local color_val = 0
-    if blink_chance > 0.8 then
-        local blink_speed = 20
-        color_val = (math.sin(time * blink_speed) + 1) / 2 * 255
-    end
-    
-    surface.SetTextColor(255, color_val, color_val, 255)
-    
-    local textShakeX = math.random(-10, 10) * 0.1
-    local textShakeY = math.random(-10, 10) * 0.1
-    if math.random() > 0.9 then
-        textShakeX = textShakeX + math.random(-3, 3)
-        textShakeY = textShakeY + math.random(-3, 3)
-    end
-    
-    local titleY = self.LogoY
-    if self.TargetState == "Appearance" or (self.TargetState == "Main" and self.CurrentState == "Appearance") then
-        titleY = self.LogoY - ScrH() * progress
+    local driftX = math.sin(time * 0.35) * ScreenScaleH(1.5)
+    local driftY = math.cos(time * 0.27) * ScreenScaleH(1)
+
+    local easedTitle = progress * progress * (3 - 2 * progress)
+
+    local offX, offY = 0, 0
+
+    if self.TargetState == "Settings" or (self.TargetState == "Main" and self.CurrentState == "Settings") then
+        offX = -ScrW() * easedTitle
+    elseif self.TargetState == "Achievements" or (self.TargetState == "Main" and self.CurrentState == "Achievements") then
+        offX = ScrW() * easedTitle
+    elseif self.TargetState == "Appearance" or (self.TargetState == "Main" and self.CurrentState == "Appearance") then
+        offY = -ScrH() * easedTitle
     elseif self.TargetState == "TraitorMenu" or (self.TargetState == "Main" and self.CurrentState == "TraitorMenu") or self.TargetState == "TraitorPresets" or (self.TargetState == "Main" and self.CurrentState == "TraitorPresets") then
-        titleY = self.LogoY + ScrH() * progress
-        
-        if (self.TargetState == "TraitorPresets" and self.CurrentState == "TraitorMenu") or (self.TargetState == "TraitorMenu" and self.CurrentState == "TraitorPresets") then
-            titleY = self.LogoY + ScrH()
-        end
+        offY = ScrH() * easedTitle
     end
-    
+
     if self.CurrentState ~= "Main" and self.TargetState ~= "Main" then
         if (self.CurrentState == "TraitorMenu" or self.CurrentState == "TraitorPresets") and (self.TargetState == "TraitorMenu" or self.TargetState == "TraitorPresets") then
-            -- Leave titleY as is (it was set above)
+            offX, offY = 0, 0
         else
-            titleY = self.LogoY - ScrH()
-            if self.CurrentState == "Settings" or self.TargetState == "Settings" or self.CurrentState == "Achievements" or self.TargetState == "Achievements" then
-                titleY = self.LogoY
-            end
+            offX, offY = 0, -ScrH()
         end
     end
 
-    surface.SetTextPos(self.LogoX + textShakeX, titleY + textShakeY)
-    surface.DrawText(text1)
+    surface.SetFont("ZC_MM_MainTitle")
+    local titleBaseX, titleBaseY = (w - surface.GetTextSize(mainTitle)) / 2, self.LogoY
+    local titleX = titleBaseX + offX
+    local titleY = titleBaseY + offY
+
+    local titleMat = Matrix()
+    titleMat:Translate(Vector(titleX + driftX, titleY + driftY, 0))
+    titleMat:Scale(Vector(1, self.TitleStretch or 1.35, 1))
+
+    cam.PushModelMatrix(titleMat)
+    surface.SetTextColor(232, 232, 232, 255)
+    surface.SetTextPos(0, 0)
+    surface.DrawText(mainTitle)
+    cam.PopModelMatrix()
+
+    surface.SetFont("ZC_MM_SubTitle")
+    local tracking = ScreenScaleH(7)
+    local total = 0
+    for i = 1, #subtitle do
+        total = total + surface.GetTextSize(string.sub(subtitle, i, i))
+        if i < #subtitle then
+            total = total + tracking
+        end
+    end
+    local subX = (w - total) / 2 + offX
+    local subY = titleY + self.MainTitleH + self.SubGap
+    surface.SetTextColor(200, 200, 200, 235)
+    for i = 1, #subtitle do
+        local char = string.sub(subtitle, i, i)
+        local cw = surface.GetTextSize(char)
+        surface.SetTextPos(subX + driftX, subY + driftY)
+        surface.DrawText(char)
+        subX = subX + cw + tracking
+    end
     
     if self.IsIntro then
         local enterText = "press enter"

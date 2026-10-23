@@ -196,11 +196,12 @@ if CLIENT then
 				net.SendToServer()
 			end
 
+			local poseCount = math.max(#poses_right, 1)
 			for i = #segments,1,-1 do--govno debila
-				local r,g,b,a = LerpColor(i / #poses_right,color,color2)
+				local r,g,b,a = LerpColor(i / poseCount,color,color2)
 				surface.SetDrawColor(r,g,b,a)
 				hg.drawPart(segments[i],r,g,b,a)
-				if poses_right[i] then
+				if poses_right[i] and poses_left[i] and poses_right[i+1] and poses_left[i+1] then
 					local poly = {
 						poses_left[i+1],
 						poses_right[i],
@@ -213,7 +214,7 @@ if CLIENT then
 						poses_right[i],
 						poses_left[i+1],
 					}
-				
+
 					surface.DrawPoly( poly )
 					surface.DrawPoly( poly2 )
 				end
