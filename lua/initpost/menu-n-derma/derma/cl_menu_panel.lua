@@ -302,8 +302,9 @@ function PANEL:Init()
 
     self.TitleStretch = 1.55
     self.MainTitleH = mainH * self.TitleStretch
-    self.SubGap = -ScreenScaleH(9)
-    self.LogoH = self.MainTitleH + self.SubGap + subH
+    self.TitleBottomRatio = 0.78
+    self.SubGap = ScreenScaleH(8)
+    self.LogoH = self.MainTitleH * self.TitleBottomRatio + self.SubGap + subH
 
     self.MenuTop = self.LogoY + self.LogoH + math.max(ScreenScaleH(120), ScrH() * 0.16)
     
@@ -2850,33 +2851,26 @@ function PANEL:Paint(w,h)
     if subStart > 0 and time >= subStart then
         local popK = math.Clamp((time - subStart) / 0.12, 0, 1)
 
-        surface.SetFont("ZC_MM_SubTitle")
-        local tracking = ScreenScaleH(7)
-        local total = 0
+        local spaced = ""
         for i = 1, #subtitle do
-            total = total + surface.GetTextSize(string.sub(subtitle, i, i))
-            if i < #subtitle then
-                total = total + tracking
-            end
+            spaced = spaced .. string.sub(subtitle, i, i) .. " "
         end
-        local subX = (w - total) / 2 + offX
-        local subY = titleY + self.MainTitleH + self.SubGap
-        local subC = subX + total / 2
+        spaced = string.sub(spaced, 1, -2)
+
+        surface.SetFont("ZC_MM_SubTitle")
+        local _, subH = surface.GetTextSize(spaced)
+
+        local subY = titleY + self.MainTitleH * (self.TitleBottomRatio or 0.78) + self.SubGap
+        local cX = w / 2 + offX
+        local cY = subY + subH / 2
 
         local subMat = Matrix()
-        subMat:Translate(Vector(subC, subY + driftY, 0))
+        subMat:Translate(Vector(cX, cY, 0))
         subMat:Scale(Vector(1 + (1 - popK) * 0.2, 1 + (1 - popK) * 0.2, 1))
-        subMat:Translate(Vector(-subC, 0, 0))
+        subMat:Translate(Vector(-cX, -cY, 0))
 
         cam.PushModelMatrix(subMat)
-        surface.SetTextColor(200, 200, 200, 235)
-        for i = 1, #subtitle do
-            local char = string.sub(subtitle, i, i)
-            local cw = surface.GetTextSize(char)
-            surface.SetTextPos(subX + driftX, subY)
-            surface.DrawText(char)
-            subX = subX + cw + tracking
-        end
+        draw.SimpleText(spaced, "ZC_MM_SubTitle", cX + driftX, cY, Color(200, 200, 200, 235), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         cam.PopModelMatrix()
     end
     
